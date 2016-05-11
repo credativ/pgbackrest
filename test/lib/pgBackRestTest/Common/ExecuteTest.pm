@@ -72,6 +72,7 @@ sub new
     $self->{iExpectedExitStatus} = defined($self->{iExpectedExitStatus}) ? $self->{iExpectedExitStatus} : 0;
     $self->{iRetrySeconds} = defined($self->{iRetrySeconds}) ? $self->{iRetrySeconds} : undef;
 
+    $self->{strUserDefault} = 'vagrant'; #BackRestTestCommon_UserBackRestGet();
     $self->{strUserBackRest} = 'backrest'; #BackRestTestCommon_UserBackRestGet();
     $self->{strHost} = '127.0.0.1'; #BackRestTestCommon_HostGet();
 
@@ -93,15 +94,20 @@ sub begin
     # Assign function parameters, defaults, and log debug info
     logDebugParam(OP_EXECUTE_TEST_BEGIN);
 
-    if ($self->{bRemote})
-    {
-        # $self->{strCommand} = "sudo -u $self->{strUserBackRest} $self->{strCommandOriginal}";
-        $self->{strCommand} = "ssh $self->{strUserBackRest}\@$self->{strHost} '$self->{strCommandOriginal}'";
-    }
-    else
-    {
-        $self->{strCommand} = $self->{strCommandOriginal};
-    }
+    my $strUser = $self->{bRemote} ? $self->{strUserBackRest} : $self->{strUserDefault};
+
+    # if ($self->{bRemote})
+    # {
+    #     # $self->{strCommand} = "sudo -u $self->{strUserBackRest} $self->{strCommandOriginal}";
+    #     # $self->{strCommand} = "ssh $self->{strUserBackRest}\@$self->{strHost} '$self->{strCommandOriginal}'";
+    #     $strUser = $self->{strUserBackRest};
+    # }
+    # else
+    # {
+        $self->{strCommand} =
+            (defined($self->{strContainer}) ? "docker exec -u ${strUser} $self->{strContainer} " : '') .
+            $self->{strCommandOriginal};
+    # }
 
     $self->{strErrorLog} = '';
     $self->{strOutLog} = '';
@@ -116,7 +122,9 @@ sub begin
         $self->{strFullLog} .= '> ' . $self->{oTestLog}->regExpAll($self->{strCommand}) . "\n" . ('-' x '132') . "\n";
     }
 
-    logDebugMisc("executing command: $self->{strCommand}");
+    &log(DETAIL, "executing command: $self->{strCommand}");
+
+    # logDebugMisc("executing command: $self->{strCommand}");
 
     # Execute the command
     $self->{hError} = gensym;

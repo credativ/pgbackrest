@@ -471,47 +471,43 @@ sub containerBuild
         # Write the image
         containerWrite($strTempPath, $strImageName, $strImage, $bVmForce);
 
-        # Test image
+        # Db Test image
         ###########################################################################################################################
         foreach my $strDbVersion (@{$$oOS{db}})
         {
             my $strDbVersionNoDot = $strDbVersion;
             $strDbVersionNoDot =~ s/\.//;
 
-            $strImageName = "${strOS}-test-${strDbVersionNoDot}";
+            $strImageName = "${strOS}-db-${strDbVersionNoDot}-test";
             &log(INFO, "Building ${strImageName} image...");
 
             $strImage = "# Test Container\nFROM backrest/${strOS}-db-${strDbVersionNoDot}";
-
-            # Create BackRest User
-            $strImage .= "\n\n" . backrestUserCreate($strOS);
-
-            # Install SSH key
-            $strImage .=
-                "\n\n" . sshSetup($strOS, BACKREST_USER, BACKREST_GROUP);
 
             # Install SSH key for vagrant user
             $strImage .=
                 "\n\n" . sshSetup($strOS, TEST_USER, TEST_GROUP);
 
-            # Put vagrant user in postgres group so tests work properly (this will be removed in the future)
-            $strImage .=
-                "\n\n# Add postgres group to vagrant user\n" .
-                "RUN usermod -g " . BACKREST_GROUP . " -G " . TEST_GROUP . " " . TEST_USER;
-
             # Install Perl packages
             $strImage .=
                 "\n\n" . perlInstall($strOS);
 
-            # Make PostgreSQL home group readable
-            $strImage .=
-                "\n\n# Make vagrant home dir readable\n" .
-                "RUN chown -R vagrant:postgres /home/vagrant\n" .
-                "RUN chmod g+r,g+x /home/vagrant";
-
             # Write the image
             containerWrite($strTempPath, $strImageName, $strImage, $bVmForce);
         }
+
+        # Backup Test image
+        ###########################################################################################################################
+        $strImageName = "${strOS}-backup-test";
+        &log(INFO, "Building ${strImageName} image...");
+
+        $strImage = "# Backup Doc Container\nFROM backrest/${strOS}-backup";
+
+        # Install Perl packages
+        $strImage .=
+            "\n\n" . perlInstall($strOS) . "\n";
+
+        # Write the image
+        containerWrite($strTempPath, $strImageName, $strImage, $bVmForce);
     }
 }
 

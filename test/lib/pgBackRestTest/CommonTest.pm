@@ -39,7 +39,7 @@ our @EXPORT = qw(BackRestTestCommon_Create BackRestTestCommon_Drop BackRestTestC
                  BackRestTestCommon_ConfigCreate BackRestTestCommon_ConfigRemap BackRestTestCommon_ConfigRecovery
                  BackRestTestCommon_Run BackRestTestCommon_Cleanup BackRestTestCommon_PgSqlBinPathGet
                  BackRestTestCommon_StanzaGet BackRestTestCommon_CommandMainGet BackRestTestCommon_CommandRemoteGet
-                 BackRestTestCommon_HostGet BackRestTestCommon_UserGet BackRestTestCommon_GroupGet
+                 BackRestTestCommon_HostGet BackRestTestCommon_UserGet BackRestTestCommon_GroupGet BackRestTestCommon_Container
                  BackRestTestCommon_UserBackRestGet BackRestTestCommon_TestPathGet BackRestTestCommon_DataPathGet
                  BackRestTestCommon_RepoPathGet BackRestTestCommon_LocalPathGet BackRestTestCommon_DbPathGet
                  BackRestTestCommon_DbCommonPathGet BackRestTestCommon_ClusterStop BackRestTestCommon_DbTablespacePathGet
@@ -49,6 +49,7 @@ our @EXPORT = qw(BackRestTestCommon_Create BackRestTestCommon_Drop BackRestTestC
                  BackRestTestCommon_CommandRemoteFullGet BackRestTestCommon_BasePathGet BackRestTestCommon_LinkCreate);
 
 my $strPgSqlBin;
+my $strCommonContainer;
 my $strCommonStanza;
 my $strCommonCommandMain;
 my $bCommandMainSet = false;
@@ -123,7 +124,8 @@ sub BackRestTestCommon_CreateRepo
     # Create the backup directory
     if ($bRemote)
     {
-        executeTest('mkdir -m 700 ' . BackRestTestCommon_RepoPathGet(),
+        executeTest('mkdir -m 770 ' . BackRestTestCommon_RepoPathGet() .
+                    ' && sudo chown backrest:postgres ' . BackRestTestCommon_RepoPathGet(),
                     {bRemote => true});
     }
     else
@@ -389,6 +391,7 @@ sub BackRestTestCommon_FileRemove
 ####################################################################################################################################
 sub BackRestTestCommon_Setup
 {
+    my $strContainer = shift;
     my $strExe = shift;
     my $strTestPathParam = shift;
     my $strPgSqlBinParam = shift;
@@ -401,6 +404,7 @@ sub BackRestTestCommon_Setup
 
     $strPgSqlBin = $strPgSqlBinParam;
 
+    $strCommonContainer = $strContainer;
     $strCommonStanza = 'db';
     $strCommonHost = '127.0.0.1';
     $strCommonUser = getpwuid($<);
@@ -438,7 +442,7 @@ sub BackRestTestCommon_Setup
 
     # Get the Postgres version
     my $strVersionRegExp = '(devel|((alpha|beta|rc)[0-9]+))$';
-    my $strOutLog = executeTest($strPgSqlBin . '/postgres --version');
+    my $strOutLog = executeTest($strPgSqlBin . '/postgres --version', {strContainer => BackRestTestCommon_Container()});
 
     my @stryVersionToken = split(/ /, $strOutLog);
     @stryVersionToken = split(/\./, $stryVersionToken[2]);
@@ -833,6 +837,11 @@ sub BackRestTestCommon_ConfigCreate
 sub BackRestTestCommon_PgSqlBinPathGet
 {
     return $strPgSqlBin;
+}
+
+sub BackRestTestCommon_Container
+{
+    return $strCommonContainer;
 }
 
 sub BackRestTestCommon_StanzaGet

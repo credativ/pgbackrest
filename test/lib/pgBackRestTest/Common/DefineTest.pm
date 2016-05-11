@@ -29,6 +29,8 @@ use constant TESTDEF_TEST_NAME                                      => 'name';
     push @EXPORT, qw(TESTDEF_TEST_NAME);
 use constant TESTDEF_TEST_TOTAL                                     => 'total';
     push @EXPORT, qw(TESTDEF_TEST_TOTAL);
+use constant TESTDEF_TEST_CONTAINER                                 => 'container';
+    push @EXPORT, qw(TESTDEF_TEST_CONTAINER);
 use constant TESTDEF_TEST_THREAD                                    => 'thread';
     push @EXPORT, qw(TESTDEF_TEST_THREAD);
 use constant TESTDEF_TEST_DB                                        => 'db';
@@ -44,6 +46,8 @@ my $oTestDef =
         # Help tests
         {
             &TESTDEF_MODULE_NAME => 'help',
+            &TESTDEF_TEST_CONTAINER => true,
+
             &TESTDEF_TEST =>
             [
                 {
@@ -54,6 +58,8 @@ my $oTestDef =
         # Config tests
         {
             &TESTDEF_MODULE_NAME => 'config',
+            &TESTDEF_TEST_CONTAINER => true,
+
             &TESTDEF_TEST =>
             [
                 {
@@ -67,6 +73,8 @@ my $oTestDef =
         # File tests
         {
             &TESTDEF_MODULE_NAME => 'file',
+            &TESTDEF_TEST_CONTAINER => true,
+
             &TESTDEF_TEST =>
             [
                 {
@@ -104,6 +112,8 @@ my $oTestDef =
         # Backup tests
         {
             &TESTDEF_MODULE_NAME => 'backup',
+            &TESTDEF_TEST_CONTAINER => false,
+
             &TESTDEF_TEST =>
             [
                 {

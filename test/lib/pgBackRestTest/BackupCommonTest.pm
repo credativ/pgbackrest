@@ -1348,7 +1348,7 @@ sub BackRestTestBackup_Stop
                     '/pgbackrest.conf' .
                 (defined($strStanza) ? " --stanza=${strStanza}" : '') .
                 (defined($bForce) && $bForce ? ' --force' : '') . ' stop',
-                {bRemote => $bRemote, oLogTest => $oBackupLogTest});
+                {bRemote => $bRemote, oLogTest => $oBackupLogTest, strContainer => BackRestTestCommon_Container()});
 }
 
 ####################################################################################################################################
@@ -1369,7 +1369,8 @@ sub BackRestTestBackup_Start
                 ' --config=' .
                 ($bRemote ? BackRestTestCommon_RepoPathGet() : BackRestTestCommon_DbPathGet()) .
                 '/pgbackrest.conf' . (defined($strStanza) ? " --stanza=${strStanza}" : '') . ' start',
-                {bRemote => $bRemote, strComment => $strComment, oLogTest => $oBackupLogTest});
+                {bRemote => $bRemote, strComment => $strComment, oLogTest => $oBackupLogTest,
+                 strContainer => BackRestTestCommon_Container()});
 }
 
 ####################################################################################################################################

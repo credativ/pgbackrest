@@ -34,6 +34,9 @@ use pgBackRest::Protocol::RemoteMaster;
 
 use pgBackRestTest::BackupCommonTest;
 use pgBackRestTest::Common::ExecuteTest;
+use pgBackRestTest::Common::HostGroupTest;
+use pgBackRestTest::Common::HostTest;
+use pgBackRestTest::Common::VmTest;
 use pgBackRestTest::CommonTest;
 use pgBackRestTest::ExpireCommonTest;
 
@@ -116,12 +119,12 @@ sub archivePush
                  true);                                 # Create path if it does not exist
 
     my $strCommand = BackRestTestCommon_CommandMainGet() . ' --config=' . BackRestTestCommon_DbPathGet() .
-                     '/pgbackrest.conf --archive-max-mb=24 --no-fork --stanza=db archive-push' .
-                     (defined($iExpectedError) && $iExpectedError == ERROR_HOST_CONNECT ?
-                      "  --backup-host=bogus" : '');
+                     '/pgbackrest.conf --archive-max-mb=24 --no-fork --stanza=db' .
+                     (defined($iExpectedError) && $iExpectedError == ERROR_HOST_CONNECT ? ' --backup-host=bogus' : '') .
+                     ' archive-push';
 
     executeTest($strCommand . " ${strSourceFile}",
-                {iExpectedExitStatus => $iExpectedError, oLogTest => $oLogTest});
+                {iExpectedExitStatus => $iExpectedError, oLogTest => $oLogTest, strContainer => BackRestTestCommon_Container()});
 }
 
 ####################################################################################################################################
@@ -172,24 +175,8 @@ sub BackRestTestBackup_Test
     # Drop any existing cluster
     BackRestTestBackup_Drop(true, true);
 
+    # Create File Object
     #-------------------------------------------------------------------------------------------------------------------------------
-    # Create remotes
-    #-------------------------------------------------------------------------------------------------------------------------------
-    BackRestTestBackup_Create(true, false);
-
-    my $oRemote = new pgBackRest::Protocol::RemoteMaster
-    (
-        BackRestTestCommon_CommandRemoteFullGet(),  # Remote command
-        OPTION_DEFAULT_BUFFER_SIZE,                 # Buffer size
-        OPTION_DEFAULT_COMPRESS_LEVEL,              # Compress level
-        OPTION_DEFAULT_COMPRESS_LEVEL_NETWORK,      # Compress network level
-        $strHost,                                   # Host
-        $strUserBackRest,                           # User
-        PROTOCOL_TIMEOUT_TEST                       # Protocol timeout
-    );
-
-    BackRestTestBackup_Drop();
-
     my $oLocal = new pgBackRest::Protocol::Common
     (
         OPTION_DEFAULT_BUFFER_SIZE,                 # Buffer size
@@ -197,6 +184,13 @@ sub BackRestTestBackup_Test
         OPTION_DEFAULT_COMPRESS_LEVEL_NETWORK,      # Compress network level
         PROTOCOL_TIMEOUT_TEST                       # Protocol timeout
     );
+
+    # Get host group and create db-master
+    #-------------------------------------------------------------------------------------------------------------------------------
+    my $oHostGroup = hostGroupGet();
+
+    my $oHostDbMaster = new pgBackRestTest::Common::HostTest(VM_DB_MASTER, 'backrest/co6-db-94-test', 'vagrant', 'co6',
+                                                             '/backrest:/backrest');
 
     #-------------------------------------------------------------------------------------------------------------------------------
     # Test archive-push
@@ -236,7 +230,7 @@ sub BackRestTestBackup_Test
                         $strStanza,
                         BackRestTestCommon_RepoPathGet(),
                         $bRemote ? 'backup' : undef,
-                        $bRemote ? $oRemote : $oLocal
+                        $oLocal
                     ))->clone();
 
                     $bCreate = false;
@@ -292,10 +286,11 @@ sub BackRestTestBackup_Test
                             ($strArchiveFile, $strSourceFile) = archiveGenerate($oFile, $strXlogPath, 2, $iArchiveNo);
                             executeTest('touch ' . BackRestTestCommon_RepoPathGet() . "/archive/${strStanza}/9.3-1/" .
                                         substr($strArchiveFile, 0, 16) . "/${strArchiveFile}.tmp",
-                                        {bRemote => $bRemote});
+                                        {bRemote => $bRemote, strContainer => BackRestTestCommon_Container()});
                         }
 
-                        executeTest($strCommand . " ${strSourceFile}", {oLogTest => $oLogTest});
+                        executeTest($strCommand . " ${strSourceFile}",
+                                    {oLogTest => $oLogTest, strContainer => BackRestTestCommon_Container()});
 
                         if ($iArchive == $iBackup)
                         {
@@ -313,7 +308,8 @@ sub BackRestTestBackup_Test
                             &log(INFO, '        test db version mismatch error');
 
                             executeTest($strCommand . " ${strSourceFile}",
-                                        {iExpectedExitStatus => ERROR_ARCHIVE_MISMATCH, oLogTest => $oLogTest});
+                                        {iExpectedExitStatus => ERROR_ARCHIVE_MISMATCH, oLogTest => $oLogTest,
+                                         strContainer => BackRestTestCommon_Container()});
 
                             # Break the system id
                             $oInfo{&INFO_ARCHIVE_SECTION_DB}{&INFO_ARCHIVE_KEY_DB_VERSION} = $strDbVersion;
@@ -323,7 +319,8 @@ sub BackRestTestBackup_Test
                             &log(INFO, '        test db system-id mismatch error');
 
                             executeTest($strCommand . " ${strSourceFile}",
-                                        {iExpectedExitStatus => ERROR_ARCHIVE_MISMATCH, oLogTest => $oLogTest});
+                                        {iExpectedExitStatus => ERROR_ARCHIVE_MISMATCH, oLogTest => $oLogTest,
+                                         strContainer => BackRestTestCommon_Container()});
 
                             # Move settings back to original
                             $oInfo{&INFO_ARCHIVE_SECTION_DB}{&INFO_ARCHIVE_KEY_DB_SYSTEM_ID} = $ullDbSysId;
@@ -339,7 +336,8 @@ sub BackRestTestBackup_Test
                                     my $oExecArchive = new pgBackRestTest::Common::ExecuteTest(
                                         $strCommand . ' --test --test-delay=5 --test-point=' . lc(TEST_ARCHIVE_PUSH_ASYNC_START) .
                                         "=y ${strSourceFile}",
-                                        {oLogTest => $oLogTest, iExpectedExitStatus => ERROR_TERM});
+                                        {oLogTest => $oLogTest, iExpectedExitStatus => ERROR_TERM,
+                                         strContainer => BackRestTestCommon_Container()});
                                     $oExecArchive->begin();
                                     $oExecArchive->end(TEST_ARCHIVE_PUSH_ASYNC_START);
 
@@ -353,7 +351,8 @@ sub BackRestTestBackup_Test
                                 }
 
                                 executeTest($strCommand . " ${strSourceFile}",
-                                            {oLogTest => $oLogTest, iExpectedExitStatus => ERROR_STOP});
+                                            {oLogTest => $oLogTest, iExpectedExitStatus => ERROR_STOP,
+                                             strContainer => BackRestTestCommon_Container()});
 
 
                                 BackRestTestBackup_Start($bArchiveAsync ? undef : $strStanza);
@@ -362,14 +361,16 @@ sub BackRestTestBackup_Test
                             # Should succeed because checksum is the same
                             &log(INFO, '        test archive duplicate ok');
 
-                            executeTest($strCommand . " ${strSourceFile}", {oLogTest => $oLogTest});
+                            executeTest($strCommand . " ${strSourceFile}", {oLogTest => $oLogTest,
+                                        strContainer => BackRestTestCommon_Container()});
 
                             # Now it should break on archive duplication (because checksum is different
                             &log(INFO, '        test archive duplicate error');
 
                             ($strArchiveFile, $strSourceFile) = archiveGenerate($oFile, $strXlogPath, 1, $iArchiveNo);
                             executeTest($strCommand . " ${strSourceFile}",
-                                        {iExpectedExitStatus => ERROR_ARCHIVE_DUPLICATE, oLogTest => $oLogTest});
+                                        {iExpectedExitStatus => ERROR_ARCHIVE_DUPLICATE, oLogTest => $oLogTest,
+                                         strContainer => BackRestTestCommon_Container()});
 
                             if ($bArchiveAsync)
                             {
@@ -384,18 +385,21 @@ sub BackRestTestBackup_Test
                             # Test .partial archive
                             &log(INFO, '        test .partial archive');
                             ($strArchiveFile, $strSourceFile) = archiveGenerate($oFile, $strXlogPath, 2, $iArchiveNo, true);
-                            executeTest($strCommand . " ${strSourceFile}", {oLogTest => $oLogTest});
+                            executeTest($strCommand . " ${strSourceFile}", {oLogTest => $oLogTest,
+                                        strContainer => BackRestTestCommon_Container()});
                             archiveCheck($oFile, $strArchiveFile, $strArchiveChecksum, $bCompress);
 
                             # Test .partial archive duplicate
                             &log(INFO, '        test .partial archive duplicate');
-                            executeTest($strCommand . " ${strSourceFile}", {oLogTest => $oLogTest});
+                            executeTest($strCommand . " ${strSourceFile}", {oLogTest => $oLogTest,
+                                        strContainer => BackRestTestCommon_Container()});
 
                             # Test .partial archive with different checksum
                             &log(INFO, '        test .partial archive with different checksum');
                             ($strArchiveFile, $strSourceFile) = archiveGenerate($oFile, $strXlogPath, 1, $iArchiveNo, true);
                             executeTest($strCommand . " ${strSourceFile}",
-                                        {iExpectedExitStatus => ERROR_ARCHIVE_DUPLICATE, oLogTest => $oLogTest});
+                                        {iExpectedExitStatus => ERROR_ARCHIVE_DUPLICATE, oLogTest => $oLogTest,
+                                         strContainer => BackRestTestCommon_Container()});
 
                             if ($bArchiveAsync)
                             {
@@ -470,7 +474,7 @@ sub BackRestTestBackup_Test
                         $strStanza,
                         BackRestTestCommon_RepoPathGet(),
                         $bRemote ? 'backup' : undef,
-                        $bRemote ? $oRemote : $oLocal
+                        $oLocal
                     ))->clone();
 
                     $bCreate = false;
@@ -586,7 +590,7 @@ sub BackRestTestBackup_Test
                         $strStanza,
                         BackRestTestCommon_RepoPathGet(),
                         $bRemote ? 'backup' : undef,
-                        $bRemote ? $oRemote : $oLocal
+                        $oLocal
                     ))->clone();
 
                     BackRestTestBackup_Create($bRemote, false);
@@ -885,7 +889,7 @@ sub BackRestTestBackup_Test
                 $strStanza,
                 BackRestTestCommon_RepoPathGet(),
                 $bRemote ? 'backup' : undef,
-                $bRemote ? $oRemote : $oLocal
+                $oLocal
             );
 
             BackRestTestBackup_Init($bRemote, $oFile, true, $oLogTest, $iThreadMax);
@@ -1670,7 +1674,7 @@ sub BackRestTestBackup_Test
                 $strStanza,
                 BackRestTestCommon_RepoPathGet(),
                 $bRemote ? 'backup' : undef,
-                $bRemote ? $oRemote : $oLocal
+                $oLocal
             );
 
             # Create the test directory

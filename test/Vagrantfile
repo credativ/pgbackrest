@@ -12,6 +12,11 @@ Vagrant.configure(2) do |config|
 
     # Provision the VM
     config.vm.provision "shell", inline: <<-SHELL
+        # Add users
+        addgroup --gid=5000 postgres
+        adduser --uid=5001 --ingroup=postgres --disabled-password --no-create-home --gecos "" backrest
+        usermod -G postgres -a vagrant
+
         # Install Perl modules
         sudo apt-get update
         apt-get install -y libdbi-perl libdbd-pg-perl libxml-checker-perl ghostscript libperl-critic-perl

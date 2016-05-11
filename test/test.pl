@@ -109,6 +109,7 @@ my $strVm = 'all';
 my $bVmBuild = false;
 my $bVmForce = false;
 my $bNoLint = false;
+my $strContainer = 'test-0';
 
 my $strCommandLine = join(' ', @ARGV);
 
@@ -432,10 +433,13 @@ eval
                     $strCommandLine =~ s/\-\-test\=\S*//g;
                     $strCommandLine =~ s/\-\-run\=\S*//g;
                     $strCommandLine =~ s/\-\-db\-version\=\S*//g;
+                    $strCommandLine =~ s/\-\-pgsql\-bin\=\S*//g;
 
                     my $strCommand =
-                        "docker exec -i -u vagrant ${strImage} $0 ${strCommandLine} --test-path=${strVmTestPath}" .
+                        ($$oTest{&TEST_CONTAINER} ? "docker exec -i -u vagrant ${strImage} " : '') .
+                        "$0 ${strCommandLine} --test-path=${strVmTestPath}" .
                         ' --vm=none --module=' . $$oTest{&TEST_MODULE} . ' --test=' . $$oTest{&TEST_NAME} .
+                        ' --pgsql-bin=' . $$oTest{&TEST_PGSQL_BIN} .
                         (defined($$oTest{&TEST_RUN}) ? ' --run=' . $$oTest{&TEST_RUN} : '') .
                         (defined($$oTest{&TEST_THREAD}) ? ' --thread-max=' . $$oTest{&TEST_THREAD} : '') .
                         (defined($$oTest{&TEST_DB}) ? ' --db-version=' . $$oTest{&TEST_DB} : '') .
@@ -558,7 +562,7 @@ eval
 
     do
     {
-        if (BackRestTestCommon_Setup($strExe, $strTestPath, $stryTestVersion[0], $iModuleTestRun,
+        if (BackRestTestCommon_Setup($strContainer, $strExe, $strTestPath, $stryTestVersion[0], $iModuleTestRun,
                                      $bDryRun, $bNoCleanup, $bLogForce))
         {
             if (!$bVmOut &&
@@ -611,7 +615,7 @@ eval
                 {
                     for (my $iVersionIdx = 1; $iVersionIdx < @stryTestVersion; $iVersionIdx++)
                     {
-                        BackRestTestCommon_Setup($strExe, $strTestPath, $stryTestVersion[$iVersionIdx],
+                        BackRestTestCommon_Setup($strContainer, $strExe, $strTestPath, $stryTestVersion[$iVersionIdx],
                                                  $iModuleTestRun, $bDryRun, $bNoCleanup);
                         &log(INFO, "TESTING psql-bin = $stryTestVersion[$iVersionIdx] for backup/full\n");
                         BackRestTestBackup_Test('full', defined($iThreadMax) ? $iThreadMax : 4, $bVmOut);

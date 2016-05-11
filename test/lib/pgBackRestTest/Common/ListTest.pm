@@ -23,10 +23,14 @@ use pgBackRestTest::Common::VmTest;
 ################################################################################################################################
 use constant TEST_DB                                                => 'db';
     push @EXPORT, qw(TEST_DB);
+use constant TEST_CONTAINER                                         => 'container';
+    push @EXPORT, qw(TEST_CONTAINER);
 use constant TEST_MODULE                                            => 'module';
     push @EXPORT, qw(TEST_MODULE);
 use constant TEST_NAME                                              => 'test';
     push @EXPORT, qw(TEST_NAME);
+use constant TEST_PGSQL_BIN                                         => 'pgsql-bin';
+    push @EXPORT, qw(TEST_PGSQL_BIN);
 use constant TEST_RUN                                               => 'run';
     push @EXPORT, qw(TEST_RUN);
 use constant TEST_THREAD                                            => 'thread';
@@ -125,15 +129,30 @@ sub testListGet
 
                                     foreach my $iThreadTestMax (@{$iyThreadMax})
                                     {
+                                        my $strDbVersion = $iDbVersionIdx == -1 ? undef :
+                                                               ${$$oyVm{$strTestOS}{$strDbVersionKey}}[$iDbVersionIdx];
+
+                                        my $strPgSqlBin = $$oyVm{$strTestOS}{&VMDEF_PGSQL_BIN};
+
+                                        if (defined($strDbVersion))
+                                        {
+                                            $strPgSqlBin =~ s/\{\[version\]\}/$strDbVersion/g;
+                                        }
+                                        else
+                                        {
+                                            $strPgSqlBin =~ s/\{\[version\]\}/9\.4/g;
+                                        }
+
                                         my $oTestRun =
                                         {
                                             &TEST_VM => $strTestOS,
+                                            &TEST_CONTAINER => $$oModule{&TESTDEF_TEST_CONTAINER},
+                                            &TEST_PGSQL_BIN => $strPgSqlBin,
                                             &TEST_MODULE => $$oModule{&TESTDEF_MODULE_NAME},
                                             &TEST_NAME => $$oTest{&TESTDEF_TEST_NAME},
                                             &TEST_RUN => $iTestRunIdx == -1 ? undef : $iTestRunIdx,
                                             &TEST_THREAD => $iThreadTestMax,
-                                            &TEST_DB => $iDbVersionIdx == -1 ? undef :
-                                                ${$$oyVm{$strTestOS}{$strDbVersionKey}}[$iDbVersionIdx]
+                                            &TEST_DB => $strDbVersion
                                         };
 
                                         push(@{$oyTestRun}, $oTestRun);

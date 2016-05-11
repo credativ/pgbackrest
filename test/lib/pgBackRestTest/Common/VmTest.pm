@@ -14,6 +14,12 @@ use Exporter qw(import);
     our @EXPORT = qw();
 
 ####################################################################################################################################
+# VM Roles
+####################################################################################################################################
+use constant VM_DB_MASTER                                           => 'db-master';
+    push @EXPORT, qw(VM_DB_MASTER);
+
+####################################################################################################################################
 # Valid OS list
 ####################################################################################################################################
 use constant OS_CO6                                                 => 'co6';
@@ -25,34 +31,45 @@ use constant OS_U12                                                 => 'u12';
 use constant OS_U14                                                 => 'u14';
     push @EXPORT, qw(OS_U14);
 
+use constant VMDEF_PGSQL_BIN                                        => 'pgsql-bin';
+    push @EXPORT, qw(VMDEF_PGSQL_BIN);
+
 my $oyVm =
 {
     # CentOS 6
     &OS_CO6 =>
     {
         db => ['9.0', '9.1', '9.2', '9.3', '9.4', '9.5'],
-        db_minimal => ['9.0', '9.1']
+        db_minimal => ['9.0', '9.1'],
+
+        &VMDEF_PGSQL_BIN => '/usr/pgsql-{[version]}/bin'
     },
 
     # CentOS 7
     &OS_CO7 =>
     {
         db => ['9.3', '9.4', '9.5'],
-        db_minimal => ['9.3', '9.5']
+        db_minimal => ['9.3', '9.5'],
+
+        &VMDEF_PGSQL_BIN => '/usr/pgsql-{[version]}/bin'
     },
 
     # Ubuntu 12.04
     &OS_U12 =>
     {
         db => ['8.3', '8.4', '9.0', '9.1', '9.2', '9.3', '9.4', '9.5'],
-        db_minimal => ['8.3', '8.4']
+        db_minimal => ['8.3', '8.4'],
+
+        &VMDEF_PGSQL_BIN => '/usr/lib/postgresql/{[version]}/bin'
     },
 
     # Ubuntu 14.04
     &OS_U14 =>
     {
         db => ['9.0', '9.1', '9.2', '9.3', '9.4', '9.5'],
-        db_minimal => ['9.2', '9.4']
+        db_minimal => ['9.2', '9.4'],
+
+        &VMDEF_PGSQL_BIN => '/usr/lib/postgresql/{[version]}/bin'
     }
 };
 
