@@ -224,6 +224,9 @@ sub containerBuild
         executeTest("ssh-keygen -f ${strTempPath}/id_rsa -t rsa -b 768 -N ''", {bSuppressStdErr => true});
     }
 
+    # ??? When doing force it might be a good idea to drop old images
+    # docker images --filter "dangling=false" --format "{{.Repository}}" | grep backrest/co6
+
     my $oyVm = vmGet();
 
     foreach my $strOS (sort(keys(%$oyVm)))
