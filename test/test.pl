@@ -32,6 +32,7 @@ use pgBackRest::Version;
 
 use lib dirname($0) . '/lib';
 use pgBackRestTest::BackupTest;
+use pgBackRestTest::Common::DefineTest;
 use pgBackRestTest::Common::ExecuteTest;
 use pgBackRestTest::Common::VmTest;
 use pgBackRestTest::CommonTest;
@@ -236,109 +237,9 @@ if (!$bMatch)
 eval
 {
     ################################################################################################################################
-    # Define tests
+    # Get test definitions
     ################################################################################################################################
-    my $oTestDefinition =
-    {
-        module =>
-        [
-            # Help tests
-            {
-                name => 'help',
-                test =>
-                [
-                    {
-                        name => 'help'
-                    }
-                ]
-            },
-            # Config tests
-            {
-                name => 'config',
-                test =>
-                [
-                    {
-                        name => 'option'
-                    },
-                    {
-                        name => 'config'
-                    }
-                ]
-            },
-            # File tests
-            {
-                name => 'file',
-                test =>
-                [
-                    {
-                        name => 'path_create'
-                    },
-                    {
-                        name => 'move'
-                    },
-                    {
-                        name => 'compress'
-                    },
-                    {
-                        name => 'wait'
-                    },
-                    {
-                        name => 'manifest'
-                    },
-                    {
-                        name => 'list'
-                    },
-                    {
-                        name => 'remove'
-                    },
-                    {
-                        name => 'hash'
-                    },
-                    {
-                        name => 'exists'
-                    },
-                    {
-                        name => 'copy'
-                    }
-                ]
-            },
-            # Backup tests
-            {
-                name => 'backup',
-                test =>
-                [
-                    {
-                        name => 'archive-push',
-                        total => 8
-                    },
-                    {
-                        name => 'archive-stop',
-                        total => 6
-                    },
-                    {
-                        name => 'archive-get',
-                        total => 8
-                    },
-                    {
-                        name => 'expire',
-                        total => 1
-                    },
-                    {
-                        name => 'synthetic',
-                        total => 8,
-                        thread => true
-                    },
-                    {
-                        name => 'full',
-                        total => 8,
-                        thread => true,
-                        db => true
-                    }
-                ]
-            }
-        ]
-    };
-
+    my $oTestDef = testDefGet();
     my $oyTestRun = [];
 
     ################################################################################################################################
@@ -399,13 +300,13 @@ eval
 
         foreach my $strTestOS (@{$stryTestOS})
         {
-            foreach my $oModule (@{$$oTestDefinition{module}})
+            foreach my $oModule (@{$$oTestDef{&TESTDEF_MODULE}})
             {
-                if ($strModule eq $$oModule{name} || $strModule eq 'all')
+                if ($strModule eq $$oModule{&TESTDEF_MODULE_NAME} || $strModule eq 'all')
                 {
                     foreach my $oTest (@{$$oModule{test}})
                     {
-                        if ($strModuleTest eq $$oTest{name} || $strModuleTest eq 'all')
+                        if ($strModuleTest eq $$oTest{&TESTDEF_TEST_NAME} || $strModuleTest eq 'all')
                         {
                             my $iDbVersionMin = -1;
                             my $iDbVersionMax = -1;
@@ -419,7 +320,7 @@ eval
                                 $strDbVersionKey = 'db_minimal';
                             }
 
-                            if (defined($$oTest{db}) && $$oTest{db})
+                            if (defined($$oTest{&TESTDEF_TEST_DB}) && $$oTest{&TESTDEF_TEST_DB})
                             {
                                 $iDbVersionMin = 0;
                                 $iDbVersionMax = @{$$oyVm{$strTestOS}{$strDbVersionKey}} - 1;
@@ -434,9 +335,10 @@ eval
                                         $strDbVersion eq ${$$oyVm{$strTestOS}{$strDbVersionKey}}[$iDbVersionIdx]))
                                 {
                                     my $iTestRunMin = defined($iModuleTestRun) ?
-                                                          $iModuleTestRun : (defined($$oTest{total}) ? 1 : -1);
+                                                          $iModuleTestRun : (defined($$oTest{&TESTDEF_TEST_TOTAL}) ? 1 : -1);
                                     my $iTestRunMax = defined($iModuleTestRun) ?
-                                                          $iModuleTestRun : (defined($$oTest{total}) ? $$oTest{total} : -1);
+                                                          $iModuleTestRun : (defined($$oTest{&TESTDEF_TEST_TOTAL}) ?
+                                                              $$oTest{&TESTDEF_TEST_TOTAL} : -1);
 
                                     if (defined($$oTest{total}) && $iTestRunMax > $$oTest{total})
                                     {
@@ -447,7 +349,7 @@ eval
                                     {
                                         my $iyThreadMax = [defined($iThreadMax) ? $iThreadMax : 1];
 
-                                        if (defined($$oTest{thread}) && $$oTest{thread} &&
+                                        if (defined($$oTest{&TESTDEF_TEST_THREAD}) && $$oTest{&TESTDEF_TEST_THREAD} &&
                                             !defined($iThreadMax) && $bFirstDbVersion)
                                         {
                                             $iyThreadMax = [1, 4];
@@ -458,8 +360,8 @@ eval
                                             my $oTestRun =
                                             {
                                                 os => $strTestOS,
-                                                module => $$oModule{name},
-                                                test => $$oTest{name},
+                                                module => $$oModule{&TESTDEF_MODULE_NAME},
+                                                test => $$oTest{&TESTDEF_TEST_NAME},
                                                 run => $iTestRunIdx == -1 ? undef : $iTestRunIdx,
                                                 thread => $iThreadTestMax,
                                                 db => $iDbVersionIdx == -1 ? undef :
