@@ -32,9 +32,8 @@ use pgBackRest::Version;
 
 use lib dirname($0) . '/lib';
 use pgBackRestTest::BackupTest;
-use pgBackRestTest::Common::DefineTest;
 use pgBackRestTest::Common::ExecuteTest;
-use pgBackRestTest::Common::VmTest;
+use pgBackRestTest::Common::ListTest;
 use pgBackRestTest::CommonTest;
 use pgBackRestTest::CompareTest;
 use pgBackRestTest::ConfigTest;
@@ -237,17 +236,13 @@ if (!$bMatch)
 eval
 {
     ################################################################################################################################
-    # Get test definitions
-    ################################################################################################################################
-    my $oTestDef = testDefGet();
-    my $oyTestRun = [];
-
-    ################################################################################################################################
     # Start VM and run
     ################################################################################################################################
     if ($strVm ne 'none')
     {
-        if (!$bDryRun)
+        # Perform static source code analysis
+        #-----------------------------------------------------------------------------------------------------------------------
+        if (!$bDryRun && !$bNoLint)
         {
             # Run Perl critic
             if (!$bNoLint)
@@ -273,127 +268,33 @@ eval
                             " ${strBasePath}/test/test.pl ${strBasePath}/test/lib/*" .
                             " ${strBasePath}/doc/doc.pl ${strBasePath}/doc/lib/*");
             }
+        }
 
+        # Set the log file location
+        #-----------------------------------------------------------------------------------------------------------------------
+        if (!$bDryRun)
+        {
             logFileSet(cwd() . "/test");
         }
 
-        my $oyVm = vmGet();
-
-        if ($strVm ne 'all' && !defined($${oyVm}{$strVm}))
-        {
-            confess &log(ERROR, "${strVm} is not a valid VM");
-        }
-
         # Determine which tests to run
-        my $iTestsToRun = 0;
+        #-----------------------------------------------------------------------------------------------------------------------
+        my $oyTestRun = testListGet($strVm, $strModule, $strModuleTest, $iModuleTestRun, $strDbVersion, $iThreadMax);
 
-        my $stryTestOS = [];
-
-        if ($strVm eq 'all')
-        {
-            $stryTestOS = ['co6', 'u12', 'co7', 'u14'];
-        }
-        else
-        {
-            $stryTestOS = [$strVm];
-        }
-
-        foreach my $strTestOS (@{$stryTestOS})
-        {
-            foreach my $oModule (@{$$oTestDef{&TESTDEF_MODULE}})
-            {
-                if ($strModule eq $$oModule{&TESTDEF_MODULE_NAME} || $strModule eq 'all')
-                {
-                    foreach my $oTest (@{$$oModule{test}})
-                    {
-                        if ($strModuleTest eq $$oTest{&TESTDEF_TEST_NAME} || $strModuleTest eq 'all')
-                        {
-                            my $iDbVersionMin = -1;
-                            my $iDbVersionMax = -1;
-
-                            # By default test every db version that is supported for each OS
-                            my $strDbVersionKey = 'db';
-
-                            # Run a reduced set of tests where each PG version is only tested on a single OS
-                            if ($strDbVersion eq 'minimal')
-                            {
-                                $strDbVersionKey = 'db_minimal';
-                            }
-
-                            if (defined($$oTest{&TESTDEF_TEST_DB}) && $$oTest{&TESTDEF_TEST_DB})
-                            {
-                                $iDbVersionMin = 0;
-                                $iDbVersionMax = @{$$oyVm{$strTestOS}{$strDbVersionKey}} - 1;
-                            }
-
-                            my $bFirstDbVersion = true;
-
-                            for (my $iDbVersionIdx = $iDbVersionMax; $iDbVersionIdx >= $iDbVersionMin; $iDbVersionIdx--)
-                            {
-                                if ($iDbVersionIdx == -1 || $strDbVersion eq 'all' || $strDbVersion eq 'minimal' ||
-                                    ($strDbVersion ne 'all' &&
-                                        $strDbVersion eq ${$$oyVm{$strTestOS}{$strDbVersionKey}}[$iDbVersionIdx]))
-                                {
-                                    my $iTestRunMin = defined($iModuleTestRun) ?
-                                                          $iModuleTestRun : (defined($$oTest{&TESTDEF_TEST_TOTAL}) ? 1 : -1);
-                                    my $iTestRunMax = defined($iModuleTestRun) ?
-                                                          $iModuleTestRun : (defined($$oTest{&TESTDEF_TEST_TOTAL}) ?
-                                                              $$oTest{&TESTDEF_TEST_TOTAL} : -1);
-
-                                    if (defined($$oTest{total}) && $iTestRunMax > $$oTest{total})
-                                    {
-                                        confess &log(ERROR, "invalid run - must be >= 1 and <= $$oTest{total}")
-                                    }
-
-                                    for (my $iTestRunIdx = $iTestRunMin; $iTestRunIdx <= $iTestRunMax; $iTestRunIdx++)
-                                    {
-                                        my $iyThreadMax = [defined($iThreadMax) ? $iThreadMax : 1];
-
-                                        if (defined($$oTest{&TESTDEF_TEST_THREAD}) && $$oTest{&TESTDEF_TEST_THREAD} &&
-                                            !defined($iThreadMax) && $bFirstDbVersion)
-                                        {
-                                            $iyThreadMax = [1, 4];
-                                        }
-
-                                        foreach my $iThreadTestMax (@{$iyThreadMax})
-                                        {
-                                            my $oTestRun =
-                                            {
-                                                os => $strTestOS,
-                                                module => $$oModule{&TESTDEF_MODULE_NAME},
-                                                test => $$oTest{&TESTDEF_TEST_NAME},
-                                                run => $iTestRunIdx == -1 ? undef : $iTestRunIdx,
-                                                thread => $iThreadTestMax,
-                                                db => $iDbVersionIdx == -1 ? undef :
-                                                    ${$$oyVm{$strTestOS}{$strDbVersionKey}}[$iDbVersionIdx]
-                                            };
-
-                                            push(@{$oyTestRun}, $oTestRun);
-                                            $iTestsToRun++;
-                                        }
-                                    }
-
-                                    $bFirstDbVersion = false;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if ($iTestsToRun == 0)
+        if (@{$oyTestRun} == 0)
         {
             confess &log(ERROR, 'no tests were selected');
         }
 
-        &log(INFO, $iTestsToRun . ' test' . ($iTestsToRun > 1 ? 's': '') . " selected\n");
+        &log(INFO, @{$oyTestRun} . ' test' . (@{$oyTestRun} > 1 ? 's': '') . " selected\n");
 
-        if ($bNoCleanup && $iTestsToRun > 1)
+        if ($bNoCleanup && @{$oyTestRun} > 1)
         {
             confess &log(ERROR, '--no-cleanup is not valid when more than one test will run')
         }
 
+        # Execute tests
+        #-----------------------------------------------------------------------------------------------------------------------
         my $iTestFail = 0;
         my $oyProcess = [];
 
@@ -494,13 +395,15 @@ eval
 
                     my $strTest = sprintf('P%0' . length($iProcessMax) . 'd-T%0' . length($iTestMax) . 'd/%0' .
                                           length($iTestMax) . "d - ", $iProcessIdx, $iTestIdx, $iTestMax) .
-                                          "vm=$$oTest{os}, module=$$oTest{module}, test=$$oTest{test}" .
-                                          (defined($$oTest{run}) ? ", run=$$oTest{run}" : '') .
-                                          (defined($$oTest{thread}) ? ", thread-max=$$oTest{thread}" : '') .
-                                          (defined($$oTest{db}) ? ", db=$$oTest{db}" : '');
+                                          'vm=' . $$oTest{&TEST_VM} .
+                                          ', module=' . $$oTest{&TEST_MODULE} .
+                                          ', test=' . $$oTest{&TEST_NAME} .
+                                          (defined($$oTest{&TEST_RUN}) ? ', run=' . $$oTest{&TEST_RUN} : '') .
+                                          (defined($$oTest{&TEST_THREAD}) ? ', thread-max=' . $$oTest{&TEST_THREAD} : '') .
+                                          (defined($$oTest{&TEST_DB}) ? ', db=' . $$oTest{&TEST_DB} : '');
 
                     my $strImage = 'test-' . $iProcessIdx;
-                    my $strDbVersion = (defined($$oTest{db}) ? $$oTest{db} : '9.4');
+                    my $strDbVersion = (defined($$oTest{&TEST_DB}) ? $$oTest{&TEST_DB} : '9.4');
                     $strDbVersion =~ s/\.//;
 
                     &log($bDryRun && !$bVmOut || $bShowOutputAsync ? INFO : DEBUG, "${strTest}" .
@@ -516,9 +419,10 @@ eval
                         # Create host test directory
                         filePathCreate($strHostTestPath, '0770');
 
-                        executeTest("docker run -itd -h $$oTest{os}-test --name=${strImage}" .
-                                    " -v ${strHostTestPath}:${strVmTestPath}" .
-                                    " -v /backrest:/backrest backrest/$$oTest{os}-test-${strDbVersion}");
+                        executeTest(
+                            'docker run -itd -h ' . $$oTest{&TEST_VM} . "-test --name=${strImage}" .
+                            " -v ${strHostTestPath}:${strVmTestPath}" .
+                            ' -v /backrest:/backrest backrest/' . $$oTest{&TEST_VM} . "-test-${strDbVersion}");
                     }
 
                     # Build up command line for the individual test
@@ -531,14 +435,15 @@ eval
 
                     my $strCommand =
                         "docker exec -i -u vagrant ${strImage} $0 ${strCommandLine} --test-path=${strVmTestPath}" .
-                        " --vm=none --module=$$oTest{module} --test=$$oTest{test}" .
-                        (defined($$oTest{run}) ? " --run=$$oTest{run}" : '') .
-                        (defined($$oTest{thread}) ? " --thread-max=$$oTest{thread}" : '') .
-                        (defined($$oTest{db}) ? " --db-version=$$oTest{db}" : '') .
+                        ' --vm=none --module=' . $$oTest{&TEST_MODULE} . ' --test=' . $$oTest{&TEST_NAME} .
+                        (defined($$oTest{&TEST_RUN}) ? ' --run=' . $$oTest{&TEST_RUN} : '') .
+                        (defined($$oTest{&TEST_THREAD}) ? ' --thread-max=' . $$oTest{&TEST_THREAD} : '') .
+                        (defined($$oTest{&TEST_DB}) ? ' --db-version=' . $$oTest{&TEST_DB} : '') .
                         ($bDryRun ? " --dry-run" : '') .
-                        " --no-cleanup --vm-out";
+                        ($bVmOut ? " --vm-out" : '') .
+                        " --no-cleanup";
 
-                    &log(DEBUG, $strCommand);
+                    &log(DETAIL, $strCommand);
 
                     if (!$bDryRun || $bVmOut)
                     {
@@ -571,6 +476,8 @@ eval
         }
         while ($iProcessTotal > 0);
 
+        # Print test info and exit
+        #-----------------------------------------------------------------------------------------------------------------------
         if ($bDryRun)
         {
             &log(INFO, 'DRY RUN COMPLETED');
@@ -585,7 +492,7 @@ eval
     }
 
     ################################################################################################################################
-    # Search for psql
+    # Search for PostgreSQL
     ################################################################################################################################
     my @stryTestVersion;
     my @stryVersionSupport = versionSupport();
