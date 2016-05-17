@@ -1028,6 +1028,19 @@ sub BackRestTestBackup_Test
                 BackRestTestCommon_PathRemove(BackRestTestCommon_RepoPathGet() . "/temp/${strStanza}.tmp", $bRemote);
             }
 
+            # Test protocol errors
+            #-----------------------------------------------------------------------------------------------------------------------
+            if ($bNeutralTest && $bRemote)
+            {
+                executeTest('mv ~/.ssh/id_rsa ~/.ssh/id_rsa.bak', {bRemote => $bRemote});
+
+                # BackRestTestBackup_BackupSynthetic(
+                #     $strType, $strStanza, \%oManifest, 'fail on no cert',
+                #     {iExpectedExitStatus => ERROR_HOST_CONNECT});
+                #
+                # executeTest('mv ~/.ssh/id_rsa.bak ~/.ssh/id_rsa', {bRemote => $bRemote});
+            }
+
             # Stop operations and make sure the correct error occurs
             #-----------------------------------------------------------------------------------------------------------------------
             if ($bNeutralTest)

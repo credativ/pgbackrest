@@ -18,6 +18,7 @@ use pgBackRest::Common::Log;
 use pgBackRest::Config::Config;
 use pgBackRest::Protocol::Common;
 use pgBackRest::Protocol::IO;
+use pgBackRest::Version;
 
 ####################################################################################################################################
 # Operation constants
@@ -61,14 +62,10 @@ sub new
     my $self = $class->SUPER::new($iBufferMax, $iCompressLevel, $iCompressLevelNetwork, $iProtocolTimeout, $strName);
     bless $self, $class;
 
-    # Set command
-    if (!defined($strCommand))
-    {
-        confess &log(ASSERT, 'strCommand must be set');
-    }
-
     # Execute the command
-    $self->{io} = pgBackRest::Protocol::IO->new3($strCommand, $iProtocolTimeout, $iBufferMax);
+    $self->{strCommand} = $strCommand;
+
+    $self->{io} = pgBackRest::Protocol::IO->new3($self->{strCommand}, $iProtocolTimeout, $iBufferMax);
 
     # Check greeting to be sure the protocol matches
     $self->greetingRead();
@@ -100,13 +97,6 @@ sub close
         $self->cmdWrite('exit');
 
         undef($self->{io});
-
-        # &log(TRACE, "waiting for remote process");
-        # if (!$self->waitPid(5, false))
-        # {
-        #     &log(TRACE, "killed remote process");
-        #     kill('KILL', $self->{pId});
-        # }
     }
 }
 
@@ -135,9 +125,29 @@ sub greetingRead
     # If the line could not be read or does equal the greeting then error and exit
     if (!defined($strLine) || $strLine ne $self->{strGreeting})
     {
+        # Call wait pid to check for errors and then kill the connection
         $self->{io}->kill();
 
-        confess &log(ERROR, 'protocol version mismatch' . (defined($strLine) ? ": ${strLine}" : ''), ERROR_HOST_CONNECT);
+        # Construct a hint to help debug connection issues
+        my $strHint = "HINT: try starting the remote directly from the command line: $self->{strCommand}";
+
+        # If nothing was read then error
+        if (!defined($strLine))
+        {
+            confess &log(ERROR, "unable to read protocol greeting\n${strHint}", ERROR_HOST_CONNECT);
+        }
+
+        # If the greeting matches the preamble but not the version then error
+        if (index($strLine, $self->{strGreetingPreamble}) == 0)
+        {
+            confess &log(ERROR,
+                'protocol version mismatch (expected ' . BACKREST_VERSION . ": ${strLine}\n",
+                'HINT: is the same version of ' . BACKREST_NAME . ' running on the local and remote servers?',
+                ERROR_HOST_CONNECT);
+        }
+
+        # Else throw an error with whatever output
+        confess &log(ERROR, "received unexpected protocol greeting: ${strLine}\n${strHint}", ERROR_HOST_CONNECT);
     }
 }
 

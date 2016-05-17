@@ -68,7 +68,8 @@ sub new
     # Create the greeting that will be used to check versions with the remote
     if (defined($self->{strName}))
     {
-        $self->{strGreeting} = uc(BACKREST_NAME) . uc($self->{strName}) . ' ' . BACKREST_VERSION;
+        $self->{strGreetingPreamble} = uc(BACKREST_NAME) . ' ' . uc($self->{strName});
+        $self->{strGreeting} = $self->{strGreetingPreamble} . ' ' . BACKREST_VERSION;
     }
 
     # Return from function and log return values if any

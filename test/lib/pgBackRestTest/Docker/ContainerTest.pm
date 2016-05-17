@@ -145,7 +145,8 @@ sub sshSetup
         "RUN chmod 700 /home/${strUser}/.ssh\n" .
         "RUN echo 'Host *' > /home/${strUser}/.ssh/config\n" .
         "RUN echo '    StrictHostKeyChecking no' >> /home/${strUser}/.ssh/config\n" .
-        "RUN echo '    LogLevel quiet' >> /home/${strUser}/.ssh/config\n" .
+        ???
+        # "RUN echo '    LogLevel quiet' >> /home/${strUser}/.ssh/config\n" .
         "RUN echo '    ControlMaster auto' >> /home/${strUser}/.ssh/config\n" .
         "RUN echo '    ControlPath /tmp/\%r\@\%h:\%p' >> /home/${strUser}/.ssh/config\n" .
         "RUN echo '    ControlPersist 30' >> /home/${strUser}/.ssh/config";
