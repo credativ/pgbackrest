@@ -125,7 +125,7 @@ Option constants
 #define CFGOPT_TLS_SERVER_PORT                                      "tls-server-port"
 #define CFGOPT_TYPE                                                 "type"
 
-#define CFG_OPTION_TOTAL                                            148
+#define CFG_OPTION_TOTAL                                            149
 
 /***********************************************************************************************************************************
 Option value constants
@@ -464,6 +464,7 @@ typedef enum
     cfgOptRepoS3Key,
     cfgOptRepoS3KeySecret,
     cfgOptRepoS3KeyType,
+    cfgOptRepoS3KmsKeyId,
     cfgOptRepoS3Region,
     cfgOptRepoS3Role,
     cfgOptRepoS3Token,
